@@ -671,7 +671,7 @@ let
   root = config.programs.opencode-harness;
   cfg = root.herdrWorktrees;
   launcher = pkgs.callPackage ../../packages/herdr-worktree-terminal.nix {
-    herdrPackage = inputs.herdr.packages.${pkgs.system}.default;
+    herdrPackage = inputs.herdr.packages.${pkgs.stdenv.hostPlatform.system}.default;
     inherit (cfg) focusNewTab kittyFallback;
   };
 in
