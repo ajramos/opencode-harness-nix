@@ -62,7 +62,7 @@ opencode-harness-nix/
 |       `-- home.nix
 |-- tests/
 |   |-- module-eval.nix
-|   `-- herdr-worktree-terminal.zsh
+|   `-- herdr-worktree-terminal.bash
 `-- .github/
     `-- workflows/
         `-- checks.yml
@@ -178,7 +178,7 @@ The template asks the consumer to deliberately review the explicit `username`, `
 Activation uses Home Manager's backup option:
 
 ```sh
-home-manager switch -b pre-opencode-harness --flake .
+home-manager switch -b pre-opencode-harness --flake path:.#your-username
 ```
 
 The README instructs users to inspect the activation diff and existing backup before deleting anything. The project does not overwrite unmanaged configuration through a custom installer.
@@ -192,7 +192,7 @@ Migration is separate from creating the public module:
 3. Enable the generic plugin and Herdr modules.
 4. Translate private MCP and provider settings into a consumer-owned file that is excluded from Git.
 5. Replace inline credentials with environment or file references and rotate credentials that should no longer remain inline.
-6. Run `home-manager switch -b pre-opencode-harness --flake .`.
+6. Run `home-manager switch -b pre-opencode-harness --flake path:.#your-username` so ignored local settings remain in the flake source.
 7. Restart OpenCode and verify plugin, MCP, Herdr, and Kitty behavior.
 8. Keep the Home Manager backup until all existing integrations have been verified.
 

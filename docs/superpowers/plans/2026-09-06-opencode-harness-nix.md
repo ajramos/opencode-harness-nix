@@ -880,6 +880,16 @@ if grep -Fq 'nixfmt-rfc-style' flake.nix; then
   exit 1
 fi
 grep -Fq 'private.nix' templates/darwin/.gitignore
+grep -Fq 'herdr-worktree-terminal.bash' docs/superpowers/specs/2026-09-06-opencode-harness-nix-design.md
+grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.#your-username' docs/superpowers/specs/2026-09-06-opencode-harness-nix-design.md
+if grep -Fq 'herdr-worktree-terminal.zsh' docs/superpowers/specs/2026-09-06-opencode-harness-nix-design.md; then
+  printf 'stale launcher test extension found in design spec\n' >&2
+  exit 1
+fi
+if grep -Fq 'home-manager switch -b pre-opencode-harness --flake .' docs/superpowers/specs/2026-09-06-opencode-harness-nix-design.md; then
+  printf 'Git-filtered Home Manager activation command found in design spec\n' >&2
+  exit 1
+fi
 
 if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
   '/Users/[[:alnum:]_.-]+' . \
