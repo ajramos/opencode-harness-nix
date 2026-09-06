@@ -1,0 +1,5 @@
+.DS_Store
+.direnv/
+private.nix
+result
+result-*

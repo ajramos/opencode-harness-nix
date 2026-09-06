@@ -1,0 +1,10 @@
+{ ... }:
+{
+  programs.opencode-harness.extraSettings = {
+    mcp.private-service = {
+      type = "remote";
+      url = "{env:PRIVATE_MCP_URL}";
+      headers.Authorization = "Bearer {env:PRIVATE_MCP_TOKEN}";
+    };
+  };
+}

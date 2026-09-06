@@ -15,7 +15,10 @@ let
 
   disabled = home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
-    modules = [ module baseHome ];
+    modules = [
+      module
+      baseHome
+    ];
   };
 
   enabled = home-manager.lib.homeManagerConfiguration {
@@ -75,7 +78,9 @@ assert enabled.config.programs.opencode.enable;
 assert enabled.config.programs.opencode.settings.autoupdate;
 assert enabled.config.programs.opencode.settings.theme == "system";
 assert enabled.config.programs.opencode.settings.plugin == expectedPlugins;
-assert builtins.match "/nix/store/.+-herdr-worktree-terminal/bin/herdr-worktree-terminal" launcherPath != null;
+assert
+  builtins.match "/nix/store/.+-herdr-worktree-terminal/bin/herdr-worktree-terminal" launcherPath
+  != null;
 assert unsupported.success == false;
 pkgs.runCommand "opencode-harness-module-eval" { } ''
   touch $out
