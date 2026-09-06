@@ -17,6 +17,7 @@
       launcher = pkgs.callPackage ./packages/herdr-worktree-terminal.nix {
         herdrPackage = herdr.packages.${system}.default;
       };
+      module = import ./modules/opencode { inherit inputs; };
     in
     {
       packages.${system} = {
@@ -24,11 +25,22 @@
         herdr-worktree-terminal = launcher;
       };
 
-      checks.${system}.herdr-worktree-terminal = pkgs.runCommand "herdr-worktree-terminal-check" { } ''
-        ${pkgs.bash}/bin/bash ${./tests/herdr-worktree-terminal.bash} \
-          ${pkgs.lib.getExe launcher} ${pkgs.lib.getExe pkgs.jq}
-        touch $out
-      '';
+      homeModules = {
+        default = module;
+        opencode = module;
+      };
+
+      checks.${system} = {
+        herdr-worktree-terminal = pkgs.runCommand "herdr-worktree-terminal-check" { } ''
+          ${pkgs.bash}/bin/bash ${./tests/herdr-worktree-terminal.bash} \
+            ${pkgs.lib.getExe launcher} ${pkgs.lib.getExe pkgs.jq}
+          touch $out
+        '';
+
+        module-eval = pkgs.callPackage ./tests/module-eval.nix {
+          inherit inputs module;
+        };
+      };
 
       formatter.${system} = pkgs.nixfmt-rfc-style;
     };
