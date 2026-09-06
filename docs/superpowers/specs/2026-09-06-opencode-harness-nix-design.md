@@ -149,7 +149,7 @@ Execution flow:
 
 Concurrent invocations share no mutable pane selection. Each invocation acts only on IDs returned by its own tab-creation response.
 
-The flake pins Herdr `v0.7.3`, the version already smoke-tested with the launcher, through Herdr's official flake output. Nix supplies `herdr`, `jq`, and Kitty paths to the packaged script. The script does not depend on a user's mutable `PATH`.
+The flake pins Herdr `v0.7.3`, the version already smoke-tested with the launcher, through Herdr's official flake output. Herdr follows the root Nixpkgs input so the graph has one package set and uses its rate-limit-safe crate fetcher. Nix supplies `herdr`, `jq`, and Kitty paths to the packaged script. The script does not depend on a user's mutable `PATH`.
 
 ## Configuration And Secret Boundaries
 

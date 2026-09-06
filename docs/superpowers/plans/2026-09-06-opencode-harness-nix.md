@@ -394,7 +394,10 @@ Create `flake.nix`:
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    herdr.url = "github:herdrdev/herdr/v0.7.3";
+    herdr = {
+      url = "github:herdrdev/herdr/v0.7.3";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ nixpkgs, herdr, ... }:
