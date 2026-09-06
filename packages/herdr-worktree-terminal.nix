@@ -9,6 +9,7 @@ pkgs.writeShellApplication {
   name = "herdr-worktree-terminal";
   runtimeInputs = [
     herdrPackage
+    pkgs.coreutils
     pkgs.jq
   ] ++ pkgs.lib.optional kittyFallback pkgs.kitty;
   text = ''

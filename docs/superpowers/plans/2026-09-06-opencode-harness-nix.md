@@ -94,7 +94,7 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT
 
 mkdir -p "$fixture/bin" "$fixture/home" "$fixture/state"
-mkdir -p "$fixture/worktrees/cxe-821" "$fixture/worktrees/cxe-832"
+mkdir -p "$fixture/worktrees/cxe-821" "$fixture/worktrees/cxe-832" "$fixture/worktrees/cxe 900"
 
 cat >"$fixture/bin/herdr" <<'STUB'
 #!/usr/bin/env bash
@@ -169,6 +169,9 @@ grep -Fq 'run|pane-cxe-821|opencode --session session-821' "$fixture/herdr.log"
 grep -Fq 'run|pane-cxe-832|opencode --session session-832' "$fixture/herdr.log"
 test ! -e "$fixture/kitty.log"
 
+run_launcher --working-directory "$fixture/worktrees/cxe 900" -e opencode --session session-900
+grep -Fq 'run|pane-cxe 900|opencode --session session-900' "$fixture/herdr.log"
+
 sentinel="$fixture/must-not-exist"
 run_launcher --working-directory "$fixture/worktrees/cxe-821" -e opencode --prompt "value; touch $sentinel"
 grep -Fq "run|pane-cxe-821|opencode --prompt value\\;\\ touch\\ $sentinel" "$fixture/herdr.log"
@@ -181,6 +184,7 @@ grep -Fq "kitty|-d|$fixture/worktrees/cxe-821|-e|opencode|--session|malformed" "
 env \
   HOME="$fixture/home" \
   XDG_STATE_HOME="$fixture/state" \
+  HERDR_WORKSPACE_ID= \
   HERDR_TEST_RECORD_DIR="$fixture" \
   HERDR_BIN="$fixture/bin/herdr" \
   JQ_BIN="$jq_bin" \
@@ -348,6 +352,7 @@ pkgs.writeShellApplication {
   name = "herdr-worktree-terminal";
   runtimeInputs = [
     herdrPackage
+    pkgs.coreutils
     pkgs.jq
   ] ++ pkgs.lib.optional kittyFallback pkgs.kitty;
   text = ''
@@ -808,7 +813,8 @@ grep -Fq 'gitleaks git --redact --no-banner .' .github/workflows/checks.yml
 grep -Fq 'templates.darwin' flake.nix
 grep -Fq 'private.nix' templates/darwin/.gitignore
 
-if grep -R -F '/Users/ajramos' modules packages scripts templates README.md; then
+if grep -R -E -o '/Users/[[:alnum:]_.-]+' modules packages scripts templates README.md \
+  | grep -v -E ':/Users/your-username$'; then
   printf 'personal absolute path found in public implementation\n' >&2
   exit 1
 fi
