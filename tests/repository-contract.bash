@@ -21,6 +21,7 @@ done
 
 grep -Fq 'github:ajramos/opencode-harness-nix#darwin' README.md
 grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.' README.md
+grep -Fq 'The original tab intentionally runs `session_new`, leaving a blank OpenCode session ready for another task; the conversation and history moved to the worktree tab rather than being deleted or reset.' README.md
 grep -Fq 'macos-26' .github/workflows/checks.yml
 grep -Fq 'nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs' .github/workflows/checks.yml
 grep -Fq 'gitleaks git --redact --no-banner .' .github/workflows/checks.yml

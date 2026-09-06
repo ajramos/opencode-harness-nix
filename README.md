@@ -56,6 +56,8 @@ The template can load `private.nix`, which its `.gitignore` excludes. Copy `priv
 
 The launcher creates a Herdr tab in `HERDR_WORKSPACE_ID`, reads the new root pane ID from Herdr's JSON response, and starts only the requested OpenCode session in that pane. It never targets the current pane. A failed launch closes only its newly created tab and, by default, opens Kitty in the worktree.
 
+After `createworktree` finishes its response, `@tmegit/opencode-worktree-session` resumes the current conversation in the new worktree tab. The original tab intentionally runs `session_new`, leaving a blank OpenCode session ready for another task; the conversation and history moved to the worktree tab rather than being deleted or reset. `focusNewTab = true` (the default) shifts Herdr focus to the new tab.
+
 Logs are written to `${XDG_STATE_HOME:-$HOME/.local/state}/opencode-harness/worktree-terminal.log`.
 
 ## Reproducibility Boundary
