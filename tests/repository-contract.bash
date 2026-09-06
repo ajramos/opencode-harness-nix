@@ -22,12 +22,14 @@ done
 grep -Fq 'github:ajramos/opencode-harness-nix#darwin' README.md
 grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.' README.md
 grep -Fq 'macos-26' .github/workflows/checks.yml
+grep -Fq 'nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs' .github/workflows/checks.yml
 grep -Fq 'gitleaks git --redact --no-banner .' .github/workflows/checks.yml
 grep -Fq 'templates.darwin' flake.nix
 grep -Fq 'private.nix' templates/darwin/.gitignore
 
-if grep -R -E -o '/Users/[[:alnum:]_.-]+' modules packages scripts templates README.md \
-  | grep -v -E ':/Users/your-username$'; then
+if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
+  '/Users/[[:alnum:]_.-]+' . \
+  | grep -v -E ':/Users/(your-username|test-user)$'; then
   printf 'personal absolute path found in public implementation\n' >&2
   exit 1
 fi

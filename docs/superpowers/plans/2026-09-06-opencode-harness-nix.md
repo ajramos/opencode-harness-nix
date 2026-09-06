@@ -809,12 +809,14 @@ done
 grep -Fq 'github:ajramos/opencode-harness-nix#darwin' README.md
 grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.' README.md
 grep -Fq 'macos-26' .github/workflows/checks.yml
+grep -Fq 'nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs' .github/workflows/checks.yml
 grep -Fq 'gitleaks git --redact --no-banner .' .github/workflows/checks.yml
 grep -Fq 'templates.darwin' flake.nix
 grep -Fq 'private.nix' templates/darwin/.gitignore
 
-if grep -R -E -o '/Users/[[:alnum:]_.-]+' modules packages scripts templates README.md \
-  | grep -v -E ':/Users/your-username$'; then
+if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
+  '/Users/[[:alnum:]_.-]+' . \
+  | grep -v -E ':/Users/(your-username|test-user)$'; then
   printf 'personal absolute path found in public implementation\n' >&2
   exit 1
 fi
@@ -1132,6 +1134,9 @@ jobs:
       - name: Check flake
         run: nix flake check --print-build-logs
 
+      - name: Build Darwin consumer template
+        run: nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs
+
       - name: Scan Git history for secrets
         run: nix develop -c gitleaks git --redact --no-banner .
 ```
@@ -1146,7 +1151,12 @@ bash tests/herdr-worktree-terminal.bash
 docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 \
   nix --extra-experimental-features 'nix-command flakes' fmt path:. -- --check .
 docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 \
-  nix --extra-experimental-features 'nix-command flakes' flake check path:. --no-build --show-trace
+  nix --extra-experimental-features 'nix-command flakes' \
+  eval ./templates/darwin#homeConfigurations.your-username.activationPackage.drvPath \
+  --override-input opencode-harness path:$PWD --show-trace
+docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 \
+  nix --extra-experimental-features 'nix-command flakes' \
+  flake check path:. --all-systems --no-build --show-trace
 ```
 
 Expected: both shell tests print `PASS`; Nix formatting and evaluation exit 0.

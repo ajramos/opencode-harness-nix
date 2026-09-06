@@ -24,5 +24,8 @@ jobs:
       - name: Check flake
         run: nix flake check --print-build-logs
 
+      - name: Build Darwin consumer template
+        run: nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs
+
       - name: Scan Git history for secrets
         run: nix develop -c gitleaks git --redact --no-banner .
