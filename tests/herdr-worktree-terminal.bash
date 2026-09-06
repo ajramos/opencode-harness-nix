@@ -19,13 +19,31 @@ mode=${HERDR_TEST_MODE:-normal}
 if [[ $1 == tab && $2 == create ]]; then
   printf 'create|%s\n' "$*" >>"$record_dir/herdr.log"
   label=''
+  cwd=''
+  shift 2
   while (($#)); do
-    if [[ $1 == --label ]]; then
-      label=$2
-      break
-    fi
-    shift
+    case $1 in
+      --workspace)
+        shift 2
+        ;;
+      --cwd)
+        cwd=$2
+        shift 2
+        ;;
+      --label)
+        label=$2
+        shift 2
+        ;;
+      --focus|--no-focus)
+        shift
+        ;;
+      *)
+        printf 'unexpected tab create argument: %s\n' "$1" >&2
+        exit 2
+        ;;
+    esac
   done
+  printf 'cwd|%s\n' "$cwd" >>"$record_dir/herdr.log"
   if [[ $mode == malformed ]]; then
     printf '{"result":{"tab":{"tab_id":"tab-%s"}}}\n' "$label"
   else
@@ -83,6 +101,7 @@ grep -Fq 'run|pane-cxe-832|opencode --session session-832' "$fixture/herdr.log"
 test ! -e "$fixture/kitty.log"
 
 run_launcher --working-directory "$fixture/worktrees/cxe 900" -e opencode --session session-900
+grep -Fxq "cwd|$fixture/worktrees/cxe 900" "$fixture/herdr.log"
 grep -Fq 'run|pane-cxe 900|opencode --session session-900' "$fixture/herdr.log"
 
 sentinel="$fixture/must-not-exist"

@@ -13,6 +13,22 @@ let
     home.stateVersion = "25.05";
   };
 
+  mkEnabled =
+    harnessConfig:
+    home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [
+        module
+        baseHome
+        {
+          programs.opencode-harness = {
+            enable = true;
+          }
+          // harnessConfig;
+        }
+      ];
+    };
+
   disabled = home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
     modules = [
@@ -21,28 +37,23 @@ let
     ];
   };
 
-  enabled = home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
-    modules = [
-      module
-      baseHome
-      {
-        programs.opencode-harness = {
-          enable = true;
-          plugins = {
-            contextMode.enable = true;
-            aide.enable = true;
-            superpowers.enable = true;
-          };
-          herdrWorktrees.enable = true;
-          extraSettings = {
-            autoupdate = true;
-            theme = "system";
-            plugin = [ "custom-plugin@2.0.0" ];
-          };
-        };
-      }
-    ];
+  contextModeOnly = mkEnabled { plugins.contextMode.enable = true; };
+  aideOnly = mkEnabled { plugins.aide.enable = true; };
+  superpowersOnly = mkEnabled { plugins.superpowers.enable = true; };
+  herdrWorktreesOnly = mkEnabled { herdrWorktrees.enable = true; };
+
+  enabled = mkEnabled {
+    plugins = {
+      contextMode.enable = true;
+      aide.enable = true;
+      superpowers.enable = true;
+    };
+    herdrWorktrees.enable = true;
+    extraSettings = {
+      autoupdate = true;
+      share = "disabled";
+      plugin = [ "custom-plugin@2.0.0" ];
+    };
   };
 
   expectedPlugins = [
@@ -54,18 +65,27 @@ let
   ];
 
   linuxPkgs = import inputs.nixpkgs { system = "x86_64-linux"; };
+  unsupportedModules = [
+    module
+    {
+      home.username = "test-user";
+      home.homeDirectory = "/home/test-user";
+      home.stateVersion = "25.05";
+      programs.opencode-harness.enable = true;
+    }
+  ];
+  unsupportedConfiguration = home-manager.lib.homeManagerConfiguration {
+    pkgs = linuxPkgs;
+    modules = unsupportedModules;
+    check = false;
+  };
+  failedUnsupportedAssertions = builtins.filter (
+    assertion: !assertion.assertion
+  ) unsupportedConfiguration.config.assertions;
   unsupported = builtins.tryEval (
     (home-manager.lib.homeManagerConfiguration {
       pkgs = linuxPkgs;
-      modules = [
-        module
-        {
-          home.username = "test-user";
-          home.homeDirectory = "/home/test-user";
-          home.stateVersion = "25.05";
-          programs.opencode-harness.enable = true;
-        }
-      ];
+      modules = unsupportedModules;
     }).activationPackage.drvPath
   );
 
@@ -74,13 +94,27 @@ in
 assert disabled.config.programs.opencode.enable == false;
 assert disabled.config.programs.opencode.settings == { };
 assert !(disabled.config.home.sessionVariables ? OPENCODE_TERMINAL);
+assert contextModeOnly.config.programs.opencode.settings.plugin == [ "context-mode@1.0.169" ];
+assert aideOnly.config.programs.opencode.settings.plugin == [ "@jmylchreest/aide-plugin@0.1.15" ];
+assert
+  superpowersOnly.config.programs.opencode.settings.plugin == [
+    "superpowers@git+https://github.com/obra/superpowers.git#b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
+  ];
+assert
+  herdrWorktreesOnly.config.programs.opencode.settings.plugin == [
+    "@tmegit/opencode-worktree-session@1.1.0"
+  ];
 assert enabled.config.programs.opencode.enable;
 assert enabled.config.programs.opencode.settings.autoupdate;
-assert enabled.config.programs.opencode.settings.theme == "system";
+assert enabled.config.programs.opencode.settings.share == "disabled";
 assert enabled.config.programs.opencode.settings.plugin == expectedPlugins;
 assert
   builtins.match "/nix/store/.+-herdr-worktree-terminal/bin/herdr-worktree-terminal" launcherPath
   != null;
+assert builtins.length failedUnsupportedAssertions == 1;
+assert
+  (builtins.head failedUnsupportedAssertions).message
+  == "opencode-harness v0.1.0 supports only aarch64-darwin.";
 assert unsupported.success == false;
 pkgs.runCommand "opencode-harness-module-eval" { } ''
   touch $out

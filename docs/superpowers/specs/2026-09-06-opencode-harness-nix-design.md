@@ -80,6 +80,7 @@ The flake exposes:
 - `packages.aarch64-darwin.default`: alias to the launcher package.
 - `checks.aarch64-darwin.module-eval`: evaluates representative enabled and disabled module combinations.
 - `checks.aarch64-darwin.herdr-worktree-terminal`: runs isolated concurrent-launch and Kitty-fallback tests.
+- `checks.aarch64-darwin.darwin-template-activation`: builds a Home Manager activation package directly from the template home module and `homeModules.default`.
 - `templates.darwin`: standalone Home Manager starter configuration.
 
 The flake pins Nixpkgs and Home Manager in `flake.lock`. Home Manager follows the selected Nixpkgs input.
@@ -172,7 +173,7 @@ Consumers initialize a separate personal configuration with:
 nix flake init -t github:ajramos/opencode-harness-nix#darwin
 ```
 
-The template asks the consumer to edit the explicit `username`, `homeDirectory`, and `home.stateVersion` values before activation. It imports `homeModules.default` and demonstrates toggling each capability.
+The template asks the consumer to deliberately review the explicit `username`, `homeDirectory`, and `home.stateVersion` values before activation. `home.stateVersion` preserves compatibility behavior from the Home Manager release where the personal configuration begins; it does not pin Home Manager and should change later only after reviewing release notes and completing required migrations. It imports `homeModules.default` and demonstrates toggling each capability.
 
 Activation uses Home Manager's backup option:
 
@@ -199,13 +200,14 @@ The initial repository implementation does not activate Home Manager on this mac
 
 ## Testing
 
-`nix flake check` is the single verification entry point.
+`nix flake check` is the single root verification entry point. On Apple Silicon Darwin it builds an activation package directly from `templates/darwin/home.nix` and `homeModules.default`. CI retains a separate nested-template build with an input override to validate the standalone template's input wiring.
 
 Module checks verify:
 
 - The disabled module emits no OpenCode settings, packages, or session variables.
 - The enabled base turns on `programs.opencode` and emits the schema-backed settings.
 - Each plugin contributes exactly one pinned reference.
+- Each plugin toggle is evaluated independently, including the worktree plugin controlled by Herdr integration.
 - Enabling all plugins produces no duplicate references.
 - Herdr integration installs the launcher and defines an absolute `OPENCODE_TERMINAL` store path.
 - Unsupported systems fail with the documented assertion.
@@ -219,7 +221,7 @@ Launcher checks use stub Herdr and Kitty executables to verify:
 - Disabling Kitty fallback returns non-zero and writes a diagnostic.
 - Spaces and shell metacharacters in paths and command arguments remain data rather than becoming shell syntax.
 
-GitHub Actions runs `nix flake check` on the standard arm64 `macos-26` runner. The first public release requires a green workflow because Nix is not available locally at design time.
+GitHub Actions runs `nix flake check` on the standard arm64 `macos-26` runner. Third-party workflow actions are pinned to reviewed full commit SHAs with comments naming their release versions. The first public release requires a green workflow because Nix is not available locally at design time.
 
 ## Release And Versioning
 

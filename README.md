@@ -4,7 +4,7 @@ Composable Home Manager modules for a pinned OpenCode setup with context-mode, A
 
 ## Support
 
-The v0.1.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Nix and Home Manager must already be installed.
+The v0.1.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Install [Nix using the official macOS instructions](https://nixos.org/download/#nix-install-macos), then follow the official [standalone Home Manager installation](https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone).
 
 ## Start A Personal Configuration
 
@@ -14,7 +14,11 @@ cd opencode-home
 nix flake init -t github:ajramos/opencode-harness-nix#darwin
 ```
 
-Edit `your-username` and `/Users/your-username` in `flake.nix` and `home.nix`. Preview and activate with a backup:
+Before activation, deliberately review all three machine-specific values: the username, replacing `your-username` both as the configuration name in `flake.nix` and as `home.username` in `home.nix`; `home.homeDirectory`, using the real absolute path for that user; and `home.stateVersion`.
+
+`home.stateVersion` preserves Home Manager compatibility behavior from the release where this personal configuration begins; it does not select or pin the installed Home Manager version. Choose it deliberately for the initial activation. Do not change it casually after activation: review Home Manager release notes and perform any required migrations before changing it.
+
+Preview and activate with a backup:
 
 ```sh
 home-manager build --flake path:.#your-username
@@ -81,13 +85,15 @@ bash tests/repository-contract.bash
 nix flake check --print-build-logs
 ```
 
+On Apple Silicon macOS, the root `nix flake check` builds a Home Manager activation package directly from `templates/darwin/home.nix` and `homeModules.default`. CI also builds the exact nested template flake with an input override, independently validating the template's input wiring.
+
 Without host Nix, evaluation can run in Docker:
 
 ```sh
 docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 nix --extra-experimental-features 'nix-command flakes' flake check --no-build --show-trace
 ```
 
-Full Darwin builds run in GitHub Actions on `macos-26`.
+Docker can evaluate the Darwin outputs, but it cannot build them on a Linux host. Full Darwin builds, including both activation-package paths, run in GitHub Actions on `macos-26`.
 
 ## License
 

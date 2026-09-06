@@ -11,7 +11,12 @@
   };
 
   outputs =
-    inputs@{ nixpkgs, herdr, ... }:
+    inputs@{
+      nixpkgs,
+      home-manager,
+      herdr,
+      ...
+    }:
     let
       system = "aarch64-darwin";
       pkgs = import nixpkgs { inherit system; };
@@ -26,6 +31,13 @@
         touch $out
       '';
       module = import ./modules/opencode { inherit inputs; };
+      templateHome = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          module
+          ./templates/darwin/home.nix
+        ];
+      };
     in
     {
       packages.${system} = {
@@ -44,6 +56,7 @@
       };
 
       checks.${system} = {
+        darwin-template-activation = templateHome.activationPackage;
         repository-contract = repositoryContract;
 
         herdr-worktree-terminal = pkgs.runCommand "herdr-worktree-terminal-check" { } ''
@@ -60,11 +73,11 @@
       devShells.${system}.default = pkgs.mkShell {
         packages = [
           pkgs.gitleaks
-          pkgs.nixfmt-rfc-style
+          pkgs.nixfmt
           pkgs.shellcheck
         ];
       };
 
-      formatter.${system} = pkgs.nixfmt-rfc-style;
+      formatter.${system} = pkgs.nixfmt;
     };
 }

@@ -35,7 +35,7 @@
 - `packages/herdr-worktree-terminal.nix`: configurable `writeShellApplication` package.
 - `scripts/herdr-worktree-terminal`: terminal adapter implementation.
 - `tests/herdr-worktree-terminal.bash`: isolated concurrency, quoting, cleanup, focus, and fallback behavior tests.
-- `tests/module-eval.nix`: Home Manager output and unsupported-platform evaluation checks.
+- `tests/module-eval.nix`: independent plugin-toggle, aggregate output, and exact unsupported-platform assertion checks.
 - `tests/repository-contract.bash`: public-file, pinning, documentation, and privacy contract checks.
 - `templates/darwin/flake.nix`: standalone Home Manager starter flake.
 - `templates/darwin/home.nix`: editable starter configuration.
@@ -106,13 +106,31 @@ mode=${HERDR_TEST_MODE:-normal}
 if [[ $1 == tab && $2 == create ]]; then
   printf 'create|%s\n' "$*" >>"$record_dir/herdr.log"
   label=''
+  cwd=''
+  shift 2
   while (($#)); do
-    if [[ $1 == --label ]]; then
-      label=$2
-      break
-    fi
-    shift
+    case $1 in
+      --workspace)
+        shift 2
+        ;;
+      --cwd)
+        cwd=$2
+        shift 2
+        ;;
+      --label)
+        label=$2
+        shift 2
+        ;;
+      --focus|--no-focus)
+        shift
+        ;;
+      *)
+        printf 'unexpected tab create argument: %s\n' "$1" >&2
+        exit 2
+        ;;
+    esac
   done
+  printf 'cwd|%s\n' "$cwd" >>"$record_dir/herdr.log"
   if [[ $mode == malformed ]]; then
     printf '{"result":{"tab":{"tab_id":"tab-%s"}}}\n' "$label"
   else
@@ -170,6 +188,7 @@ grep -Fq 'run|pane-cxe-832|opencode --session session-832' "$fixture/herdr.log"
 test ! -e "$fixture/kitty.log"
 
 run_launcher --working-directory "$fixture/worktrees/cxe 900" -e opencode --session session-900
+grep -Fxq "cwd|$fixture/worktrees/cxe 900" "$fixture/herdr.log"
 grep -Fq 'run|pane-cxe 900|opencode --session session-900' "$fixture/herdr.log"
 
 sentinel="$fixture/must-not-exist"
@@ -398,7 +417,7 @@ Create `flake.nix`:
         touch $out
       '';
 
-      formatter.${system} = pkgs.nixfmt-rfc-style;
+      formatter.${system} = pkgs.nixfmt;
     };
 }
 ```
@@ -447,7 +466,7 @@ git commit -m "feat: package isolated Herdr worktree launcher"
 - Modify: `flake.nix`
 
 **Interfaces:**
-- Consumes: `inputs.herdr.packages.${pkgs.system}.default`, Home Manager's `programs.opencode`, and consumer options under `programs.opencode-harness`.
+- Consumes: `inputs.herdr.packages.${pkgs.stdenv.hostPlatform.system}.default`, Home Manager's `programs.opencode`, and consumer options under `programs.opencode-harness`.
 - Produces: `homeModules.default`, `homeModules.opencode`, pinned OpenCode plugin references, a customizable `extraSettings` JSON attrset, and `OPENCODE_TERMINAL` when worktree integration is enabled.
 
 - [ ] **Step 1: Write the failing Home Manager evaluation test**
@@ -470,33 +489,44 @@ let
     home.stateVersion = "25.05";
   };
 
+  mkEnabled =
+    harnessConfig:
+    home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [
+        module
+        baseHome
+        {
+          programs.opencode-harness = {
+            enable = true;
+          }
+          // harnessConfig;
+        }
+      ];
+    };
+
   disabled = home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
     modules = [ module baseHome ];
   };
 
-  enabled = home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
-    modules = [
-      module
-      baseHome
-      {
-        programs.opencode-harness = {
-          enable = true;
-          plugins = {
-            contextMode.enable = true;
-            aide.enable = true;
-            superpowers.enable = true;
-          };
-          herdrWorktrees.enable = true;
-          extraSettings = {
-            autoupdate = true;
-            theme = "system";
-            plugin = [ "custom-plugin@2.0.0" ];
-          };
-        };
-      }
-    ];
+  contextModeOnly = mkEnabled { plugins.contextMode.enable = true; };
+  aideOnly = mkEnabled { plugins.aide.enable = true; };
+  superpowersOnly = mkEnabled { plugins.superpowers.enable = true; };
+  herdrWorktreesOnly = mkEnabled { herdrWorktrees.enable = true; };
+
+  enabled = mkEnabled {
+    plugins = {
+      contextMode.enable = true;
+      aide.enable = true;
+      superpowers.enable = true;
+    };
+    herdrWorktrees.enable = true;
+    extraSettings = {
+      autoupdate = true;
+      share = "disabled";
+      plugin = [ "custom-plugin@2.0.0" ];
+    };
   };
 
   expectedPlugins = [
@@ -508,18 +538,27 @@ let
   ];
 
   linuxPkgs = import inputs.nixpkgs { system = "x86_64-linux"; };
+  unsupportedModules = [
+    module
+    {
+      home.username = "test-user";
+      home.homeDirectory = "/home/test-user";
+      home.stateVersion = "25.05";
+      programs.opencode-harness.enable = true;
+    }
+  ];
+  unsupportedConfiguration = home-manager.lib.homeManagerConfiguration {
+    pkgs = linuxPkgs;
+    modules = unsupportedModules;
+    check = false;
+  };
+  failedUnsupportedAssertions = builtins.filter (
+    assertion: !assertion.assertion
+  ) unsupportedConfiguration.config.assertions;
   unsupported = builtins.tryEval (
     (home-manager.lib.homeManagerConfiguration {
       pkgs = linuxPkgs;
-      modules = [
-        module
-        {
-          home.username = "test-user";
-          home.homeDirectory = "/home/test-user";
-          home.stateVersion = "25.05";
-          programs.opencode-harness.enable = true;
-        }
-      ];
+      modules = unsupportedModules;
     }).activationPackage.drvPath
   );
 
@@ -528,11 +567,23 @@ in
 assert disabled.config.programs.opencode.enable == false;
 assert disabled.config.programs.opencode.settings == { };
 assert !(disabled.config.home.sessionVariables ? OPENCODE_TERMINAL);
+assert contextModeOnly.config.programs.opencode.settings.plugin == [ "context-mode@1.0.169" ];
+assert aideOnly.config.programs.opencode.settings.plugin == [ "@jmylchreest/aide-plugin@0.1.15" ];
+assert superpowersOnly.config.programs.opencode.settings.plugin == [
+  "superpowers@git+https://github.com/obra/superpowers.git#b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
+];
+assert herdrWorktreesOnly.config.programs.opencode.settings.plugin == [
+  "@tmegit/opencode-worktree-session@1.1.0"
+];
 assert enabled.config.programs.opencode.enable;
 assert enabled.config.programs.opencode.settings.autoupdate;
-assert enabled.config.programs.opencode.settings.theme == "system";
+assert enabled.config.programs.opencode.settings.share == "disabled";
 assert enabled.config.programs.opencode.settings.plugin == expectedPlugins;
 assert builtins.match "/nix/store/.+-herdr-worktree-terminal/bin/herdr-worktree-terminal" launcherPath != null;
+assert builtins.length failedUnsupportedAssertions == 1;
+assert
+  (builtins.head failedUnsupportedAssertions).message
+  == "opencode-harness v0.1.0 supports only aarch64-darwin.";
 assert unsupported.success == false;
 pkgs.runCommand "opencode-harness-module-eval" { } ''
   touch $out
@@ -807,12 +858,27 @@ for path in "${required[@]}"; do
 done
 
 grep -Fq 'github:ajramos/opencode-harness-nix#darwin' README.md
+grep -Fq 'https://nixos.org/download/#nix-install-macos' README.md
+grep -Fq 'https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone' README.md
+# shellcheck disable=SC2016 # Markdown backticks are literal contract text.
+grep -Fq '`home.stateVersion` preserves Home Manager compatibility behavior' README.md
+grep -Fq 'Do not change it casually after activation' README.md
 grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.' README.md
+# shellcheck disable=SC2016 # Markdown backticks are literal contract text.
 grep -Fq 'The original tab intentionally runs `session_new`, leaving a blank OpenCode session ready for another task; the conversation and history moved to the worktree tab rather than being deleted or reset.' README.md
 grep -Fq 'macos-26' .github/workflows/checks.yml
+grep -Fq 'uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6' .github/workflows/checks.yml
+grep -Fq 'uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31' .github/workflows/checks.yml
+# shellcheck disable=SC2016 # $PWD is literal workflow text.
 grep -Fq 'nix build ./templates/darwin#homeConfigurations.your-username.activationPackage --override-input opencode-harness path:$PWD --no-link --print-build-logs' .github/workflows/checks.yml
 grep -Fq 'gitleaks git --redact --no-banner .' .github/workflows/checks.yml
 grep -Fq 'templates.darwin' flake.nix
+grep -Fq 'darwin-template-activation' flake.nix
+grep -Fq 'pkgs.nixfmt' flake.nix
+if grep -Fq 'nixfmt-rfc-style' flake.nix; then
+  printf 'deprecated nixfmt-rfc-style reference found in flake.nix\n' >&2
+  exit 1
+fi
 grep -Fq 'private.nix' templates/darwin/.gitignore
 
 if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
@@ -941,7 +1007,7 @@ Composable Home Manager modules for a pinned OpenCode setup with context-mode, A
 
 ## Support
 
-The v0.1.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Nix and Home Manager must already be installed.
+The v0.1.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Install [Nix using the official macOS instructions](https://nixos.org/download/#nix-install-macos), then follow the official [standalone Home Manager installation](https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone).
 
 ## Start A Personal Configuration
 
@@ -951,7 +1017,11 @@ cd opencode-home
 nix flake init -t github:ajramos/opencode-harness-nix#darwin
 ```
 
-Edit `your-username` and `/Users/your-username` in `flake.nix` and `home.nix`. Preview and activate with a backup:
+Before activation, deliberately review all three machine-specific values: the username, replacing `your-username` both as the configuration name in `flake.nix` and as `home.username` in `home.nix`; `home.homeDirectory`, using the real absolute path for that user; and `home.stateVersion`.
+
+`home.stateVersion` preserves Home Manager compatibility behavior from the release where this personal configuration begins; it does not select or pin the installed Home Manager version. Choose it deliberately for the initial activation. Do not change it casually after activation: review Home Manager release notes and perform any required migrations before changing it.
+
+Preview and activate with a backup:
 
 ```sh
 home-manager build --flake path:.#your-username
@@ -1018,13 +1088,15 @@ bash tests/repository-contract.bash
 nix flake check --print-build-logs
 ```
 
+On Apple Silicon macOS, the root `nix flake check` builds a Home Manager activation package directly from `templates/darwin/home.nix` and `homeModules.default`. CI also builds the exact nested template flake with an input override, independently validating the template's input wiring.
+
 Without host Nix, evaluation can run in Docker:
 
 ```sh
 docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 nix --extra-experimental-features 'nix-command flakes' flake check --no-build --show-trace
 ```
 
-Full Darwin builds run in GitHub Actions on `macos-26`.
+Docker can evaluate the Darwin outputs, but it cannot build them on a Linux host. Full Darwin builds, including both activation-package paths, run in GitHub Actions on `macos-26`.
 
 ## License
 
@@ -1075,7 +1147,7 @@ SOFTWARE.
 
 - [ ] **Step 4: Expose the template, repository check, and pinned development tools**
 
-Add `repositoryContract` beside `launcher` in `flake.nix`:
+Add `repositoryContract` and a template activation configuration beside `launcher` in `flake.nix`:
 
 ```nix
       repositoryContract = pkgs.runCommand "opencode-harness-repository-contract" { } ''
@@ -1085,6 +1157,13 @@ Add `repositoryContract` beside `launcher` in `flake.nix`:
         ${pkgs.bash}/bin/bash tests/repository-contract.bash
         touch $out
       '';
+      templateHome = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          module
+          ./templates/darwin/home.nix
+        ];
+      };
 ```
 
 Add these outputs to the final attrset:
@@ -1095,12 +1174,13 @@ Add these outputs to the final attrset:
         description = "Standalone Home Manager configuration for Apple Silicon macOS";
       };
 
+      checks.${system}.darwin-template-activation = templateHome.activationPackage;
       checks.${system}.repository-contract = repositoryContract;
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [
           pkgs.gitleaks
-          pkgs.nixfmt-rfc-style
+          pkgs.nixfmt
           pkgs.shellcheck
         ];
       };
@@ -1125,12 +1205,12 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -1162,7 +1242,7 @@ docker run --rm -v "$PWD:/work" -w /work nixos/nix:2.31.2 \
   flake check path:. --all-systems --no-build --show-trace
 ```
 
-Expected: both shell tests print `PASS`; Nix formatting and evaluation exit 0.
+Expected: both shell tests print `PASS`; Nix formatting and all-system evaluation exit 0. On Apple Silicon macOS, root `nix flake check` builds `darwin-template-activation`; the exact nested-template command separately validates its input wiring. Linux Docker can evaluate but not build Darwin derivations.
 
 - [ ] **Step 7: Inspect the complete diff and commit the distribution slice**
 
@@ -1230,7 +1310,7 @@ test -n "$run_id"
 gh run watch "$run_id" --exit-status
 ```
 
-Expected: `Check flake` builds both checks on arm64 Darwin and `Scan Git history for secrets` passes. If CI fails, fix the source in a new commit, push, and watch the replacement run before continuing.
+Expected: `Check flake` builds the launcher, module, repository, and direct template activation checks on arm64 Darwin; the nested-template step validates consumer input wiring; and `Scan Git history for secrets` passes. If CI fails, fix the source in a new commit, push, and watch the replacement run before continuing.
 
 - [ ] **Step 5: Tag and publish v0.1.0**
 
