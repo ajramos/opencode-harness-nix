@@ -547,14 +547,14 @@ let
       programs.opencode-harness.enable = true;
     }
   ];
-  unsupportedConfiguration = home-manager.lib.homeManagerConfiguration {
+  unsupportedModule = module {
+    config.programs.opencode-harness.enable = true;
+    lib = linuxPkgs.lib;
     pkgs = linuxPkgs;
-    modules = unsupportedModules;
-    check = false;
   };
   failedUnsupportedAssertions = builtins.filter (
     assertion: !assertion.assertion
-  ) unsupportedConfiguration.config.assertions;
+  ) unsupportedModule.assertions;
   unsupported = builtins.tryEval (
     (home-manager.lib.homeManagerConfiguration {
       pkgs = linuxPkgs;
