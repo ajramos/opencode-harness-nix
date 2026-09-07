@@ -2,7 +2,7 @@
 
 ## Summary
 
-`opencode-harness-nix` is a public Nix flake that provides composable Home Manager modules for an opinionated OpenCode environment. Its first release manages a safe base configuration, pinned OpenCode plugins, and isolated worktree sessions in Herdr with Kitty fallback on Apple Silicon macOS.
+`opencode-harness-nix` is a public Nix flake that provides composable Home Manager modules for an opinionated OpenCode environment. It manages a safe base configuration, the Context7 remote MCP server, pinned OpenCode plugins, and isolated worktree sessions in Herdr with Kitty fallback on Apple Silicon macOS.
 
 The project builds on Home Manager's official `programs.opencode` module. It does not duplicate OpenCode's configuration schema or package npm plugins as Nix derivations.
 
@@ -10,6 +10,7 @@ The project builds on Home Manager's official `programs.opencode` module. It doe
 
 - Make a useful OpenCode setup reproducible across machines.
 - Let consumers enable Aide, context-mode, Superpowers, and Herdr worktree integration independently.
+- Let consumers enable the public Context7 remote MCP endpoint independently without declaring OAuth credentials in Nix.
 - Fix plugin versions in generated OpenCode configuration.
 - Package the Herdr worktree launcher and its runtime dependencies with Nix.
 - Keep credentials, private MCP endpoints, machine-specific binaries, and organization-specific configuration out of the public repository.
@@ -48,6 +49,7 @@ opencode-harness-nix/
 |   `-- opencode/
 |       |-- default.nix
 |       |-- base.nix
+|       |-- context7.nix
 |       |-- context-mode.nix
 |       |-- aide.nix
 |       |-- superpowers.nix
@@ -92,6 +94,7 @@ The module namespace is `programs.opencode-harness`.
 ```nix
 programs.opencode-harness = {
   enable = true;
+  context7.enable = true;
   plugins = {
     contextMode.enable = true;
     aide.enable = true;
@@ -109,6 +112,7 @@ programs.opencode-harness = {
 Behavior:
 
 - `enable` enables Home Manager's `programs.opencode` and applies safe base settings.
+- `context7.enable` adds the public `https://mcp.context7.com/mcp/oauth` remote MCP endpoint and leaves authentication to OpenCode's OAuth flow.
 - Each plugin option appends one exact, versioned plugin reference to `programs.opencode.settings.plugin`.
 - `herdrWorktrees.enable` installs the launcher package and sets `home.sessionVariables.OPENCODE_TERMINAL` to its Nix store executable.
 - `focusNewTab` controls whether Herdr receives `--focus` or `--no-focus`.
@@ -161,7 +165,7 @@ The public defaults may contain plugin names, public documentation URLs, and non
 - DoiT-specific Zendesk, Mixpanel, PostHog, or internal model-provider configuration.
 - Session state or generated OpenCode caches.
 
-Consumers add credentials using OpenCode's `{env:VAR}` or `{file:path}` references through `extraSettings`. Example files use placeholder variable names but no working credential values.
+Consumers add credentials using OpenCode's `{env:VAR}` or `{file:path}` references through `extraSettings`. Example files use placeholder variable names but no working credential values. Context7 is the exception that needs no declarative credential reference: OpenCode performs OAuth on first use and stores generated credentials outside the Nix configuration.
 
 A repository-wide secret scan runs in CI. The existing live `~/.config/opencode/opencode.json` is never copied into the repository.
 
@@ -173,7 +177,7 @@ Consumers initialize a separate personal configuration with:
 nix flake init -t github:ajramos/opencode-harness-nix#darwin
 ```
 
-The template asks the consumer to deliberately review the explicit `username`, `homeDirectory`, and `home.stateVersion` values before activation. `home.stateVersion` preserves compatibility behavior from the Home Manager release where the personal configuration begins; it does not pin Home Manager and should change later only after reviewing release notes and completing required migrations. It imports `homeModules.default` and demonstrates toggling each capability.
+The template asks the consumer to deliberately review the explicit `username`, `homeDirectory`, and `home.stateVersion` values before activation. `home.stateVersion` preserves compatibility behavior from the Home Manager release where the personal configuration begins; it does not pin Home Manager and should change later only after reviewing release notes and completing required migrations. It imports `homeModules.default` and demonstrates toggling each capability, including Context7.
 
 Activation uses Home Manager's backup option:
 
@@ -208,6 +212,7 @@ Module checks verify:
 - The enabled base turns on `programs.opencode` and emits the schema-backed settings.
 - Each plugin contributes exactly one pinned reference.
 - Each plugin toggle is evaluated independently, including the worktree plugin controlled by Herdr integration.
+- Context7 is absent by default, emits the fixed remote endpoint when enabled, and coexists with consumer-owned MCP entries in `extraSettings`.
 - Enabling all plugins produces no duplicate references.
 - Herdr integration installs the launcher and defines an absolute `OPENCODE_TERMINAL` store path.
 - Unsupported systems fail with the documented assertion.
@@ -235,6 +240,7 @@ GitHub Actions runs `nix flake check` on the standard arm64 `macos-26` runner. T
 
 - A new Apple Silicon Mac with Nix and Home Manager can consume the flake without personal path edits inside the module.
 - A consumer can enable or disable each supported plugin independently.
+- A consumer can enable or disable Context7 without placing OAuth credentials in Nix.
 - Two simultaneous OpenCode worktree launches open two isolated Herdr tabs with correctly paired sessions.
 - A Herdr failure cannot inject a command into an existing pane.
 - No secret or private organization configuration is present in Git history.

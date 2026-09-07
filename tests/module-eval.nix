@@ -27,6 +27,9 @@ let
     let
       evaluated = homeEvaluation.extendModules { inherit modules; };
       result.config = {
+        programs.opencode-harness.context7 = {
+          inherit (evaluated.config.programs.opencode-harness.context7) enable;
+        };
         programs.opencode = {
           inherit (evaluated.config.programs.opencode) enable settings;
         };
@@ -54,10 +57,20 @@ let
     baseHome
   ];
 
+  baseOnly = mkEnabled { };
   contextModeOnly = mkEnabled { plugins.contextMode.enable = true; };
   aideOnly = mkEnabled { plugins.aide.enable = true; };
   superpowersOnly = mkEnabled { plugins.superpowers.enable = true; };
   herdrWorktreesOnly = mkEnabled { herdrWorktrees.enable = true; };
+  context7Only = mkEnabled { context7.enable = true; };
+  context7WithExtraSettings = mkEnabled {
+    context7.enable = true;
+    extraSettings.mcp.private = {
+      type = "remote";
+      url = "https://mcp.example.invalid/mcp";
+      enabled = true;
+    };
+  };
 
   expectedAtlassian = {
     type = "remote";
@@ -332,6 +345,8 @@ assert template.config.programs.opencode.settings.lsp == expectedLspSettings;
 assert pkgs.lib.all (
   package: builtins.elem package (map toString template.config.home.packages)
 ) expectedLspPackages;
+assert !(disabled.config.programs.opencode-harness.context7.enable);
+assert !(baseOnly.config.programs.opencode.settings ? mcp);
 assert contextModeOnly.config.programs.opencode.settings.plugin == [ "context-mode@1.0.169" ];
 assert aideOnly.config.programs.opencode.settings.plugin == [ "@jmylchreest/aide-plugin@0.1.15" ];
 assert
@@ -342,6 +357,21 @@ assert
   herdrWorktreesOnly.config.programs.opencode.settings.plugin == [
     "@tmegit/opencode-worktree-session@1.1.0"
   ];
+assert
+  context7Only.config.programs.opencode.settings.mcp.context7 == {
+    type = "remote";
+    url = "https://mcp.context7.com/mcp/oauth";
+    enabled = true;
+  };
+assert
+  context7WithExtraSettings.config.programs.opencode.settings.mcp.context7
+  == context7Only.config.programs.opencode.settings.mcp.context7;
+assert
+  context7WithExtraSettings.config.programs.opencode.settings.mcp.private == {
+    type = "remote";
+    url = "https://mcp.example.invalid/mcp";
+    enabled = true;
+  };
 assert enabled.config.programs.opencode.enable;
 assert enabled.config.programs.opencode.settings.autoupdate;
 assert enabled.config.programs.opencode.settings.share == "disabled";
@@ -352,7 +382,7 @@ assert
 assert builtins.length failedUnsupportedAssertions == 1;
 assert
   (builtins.head failedUnsupportedAssertions).message
-  == "opencode-harness v0.1.0 supports only aarch64-darwin.";
+  == "opencode-harness v0.2.0 supports only aarch64-darwin.";
 assert unsupported.success == false;
 pkgs.runCommand "opencode-harness-module-eval" { } ''
   # Store paths alone do not prove that the selected executables exist.

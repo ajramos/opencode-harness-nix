@@ -13,6 +13,7 @@ in
   imports = [
     ./base.nix
     ./lsp.nix
+    ./context7.nix
     ./context-mode.nix
     ./aide.nix
     ./superpowers.nix
@@ -21,6 +22,6 @@ in
 
   assertions = lib.optional cfg.enable {
     assertion = pkgs.stdenv.hostPlatform.system == "aarch64-darwin";
-    message = "opencode-harness v0.1.0 supports only aarch64-darwin.";
+    message = "opencode-harness v0.2.0 supports only aarch64-darwin.";
   };
 }

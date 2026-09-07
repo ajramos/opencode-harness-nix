@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.0] - 2026-09-07
+
+### Added
+
+- Optional Context7 remote MCP module with OpenCode-managed OAuth and Darwin template integration.
+
+### Fixed
+
+- Repository contract checks now ignore the `.git` pointer file used by linked worktrees.
+
 ## [0.1.0] - 2026-09-06
 
 ### Added

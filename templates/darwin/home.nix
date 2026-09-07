@@ -11,6 +11,7 @@
   programs.opencode-harness = {
     enable = true;
     mcp.atlassian.enable = true;
+    context7.enable = true;
     plugins = {
       contextMode.enable = true;
       aide.enable = true;

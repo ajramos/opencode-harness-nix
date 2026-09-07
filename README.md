@@ -1,10 +1,10 @@
 # OpenCode Harness Nix
 
-Composable Home Manager modules for a pinned OpenCode setup with context-mode, Aide, Superpowers, and isolated Herdr worktree tabs.
+Composable Home Manager modules for a pinned OpenCode setup with Context7, context-mode, Aide, Superpowers, and isolated Herdr worktree tabs.
 
 ## Support
 
-The v0.1.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Install [Nix using the official macOS instructions](https://nixos.org/download/#nix-install-macos), then follow the official [standalone Home Manager installation](https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone).
+The v0.2.x line supports Apple Silicon macOS (`aarch64-darwin`) with standalone Home Manager. Install [Nix using the official macOS instructions](https://nixos.org/download/#nix-install-macos), then follow the official [standalone Home Manager installation](https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone).
 
 ## Start A Personal Configuration
 
@@ -35,6 +35,7 @@ Add `github:ajramos/opencode-harness-nix` as an input, make its `nixpkgs` and `h
 programs.opencode-harness = {
   enable = true;
   mcp.atlassian.enable = true;
+  context7.enable = true;
   plugins = {
     contextMode.enable = true;
     aide.enable = true;
@@ -58,7 +59,9 @@ programs.opencode-harness = {
 };
 ```
 
-Every capability is optional. Enabling `herdrWorktrees` also enables `@tmegit/opencode-worktree-session@1.1.0`, installs the launcher, and exports its Nix store path as `OPENCODE_TERMINAL`.
+Every capability is optional. Enabling `context7` configures the public `https://mcp.context7.com/mcp/oauth` remote MCP endpoint. Enabling `herdrWorktrees` also enables `@tmegit/opencode-worktree-session@1.1.0`, installs the launcher, and exports its Nix store path as `OPENCODE_TERMINAL`.
+
+Context7 authentication is intentionally not declarative. On first use, OpenCode starts its remote MCP OAuth flow and stores the resulting credentials outside the Nix configuration; no OAuth token, API key, or generated credential enters the Nix store or this repository.
 
 ## Language Servers
 

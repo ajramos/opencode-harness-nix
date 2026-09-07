@@ -10,6 +10,7 @@ required=(
   templates/darwin/home.nix
   templates/darwin/private.nix.example
   templates/darwin/.gitignore
+  modules/opencode/context7.nix
   .github/workflows/checks.yml
 )
 
@@ -27,6 +28,9 @@ grep -Fq 'https://nix-community.github.io/home-manager/index.xhtml#sec-install-s
 grep -Fq '`home.stateVersion` preserves Home Manager compatibility behavior' README.md
 grep -Fq 'Do not change it casually after activation' README.md
 grep -Fq 'home-manager switch -b pre-opencode-harness --flake path:.' README.md
+grep -Fq 'https://mcp.context7.com/mcp/oauth' README.md
+grep -Fq 'no OAuth token, API key, or generated credential enters the Nix store or this repository' README.md
+grep -Fq 'context7.enable = true;' templates/darwin/home.nix
 # shellcheck disable=SC2016 # Markdown backticks are literal contract text.
 grep -Fq 'The original tab intentionally runs `session_new`, leaving a blank OpenCode session ready for another task; the conversation and history moved to the worktree tab rather than being deleted or reset.' README.md
 grep -Fq 'macos-26' .github/workflows/checks.yml
@@ -54,7 +58,7 @@ if grep -Fq 'home-manager switch -b pre-opencode-harness --flake .' docs/superpo
   exit 1
 fi
 
-if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
+if grep -r -E -o --exclude=.git --exclude-dir=.git --exclude-dir=.superpowers \
   --exclude-dir=.aide --exclude-dir=.opencode --exclude-dir=.worktrees \
   '/Users/[[:alnum:]_.-]+' . \
   | grep -v -E ':/Users/(your-username|test-user)$'; then
