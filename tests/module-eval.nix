@@ -37,10 +37,20 @@ let
     ];
   };
 
+  baseOnly = mkEnabled { };
   contextModeOnly = mkEnabled { plugins.contextMode.enable = true; };
   aideOnly = mkEnabled { plugins.aide.enable = true; };
   superpowersOnly = mkEnabled { plugins.superpowers.enable = true; };
   herdrWorktreesOnly = mkEnabled { herdrWorktrees.enable = true; };
+  context7Only = mkEnabled { context7.enable = true; };
+  context7WithExtraSettings = mkEnabled {
+    context7.enable = true;
+    extraSettings.mcp.private = {
+      type = "remote";
+      url = "https://mcp.example.invalid/mcp";
+      enabled = true;
+    };
+  };
 
   enabled = mkEnabled {
     plugins = {
@@ -94,6 +104,8 @@ in
 assert disabled.config.programs.opencode.enable == false;
 assert disabled.config.programs.opencode.settings == { };
 assert !(disabled.config.home.sessionVariables ? OPENCODE_TERMINAL);
+assert !(disabled.config.programs.opencode-harness.context7.enable);
+assert !(baseOnly.config.programs.opencode.settings ? mcp);
 assert contextModeOnly.config.programs.opencode.settings.plugin == [ "context-mode@1.0.169" ];
 assert aideOnly.config.programs.opencode.settings.plugin == [ "@jmylchreest/aide-plugin@0.1.15" ];
 assert
@@ -104,6 +116,21 @@ assert
   herdrWorktreesOnly.config.programs.opencode.settings.plugin == [
     "@tmegit/opencode-worktree-session@1.1.0"
   ];
+assert
+  context7Only.config.programs.opencode.settings.mcp.context7 == {
+    type = "remote";
+    url = "https://mcp.context7.com/mcp/oauth";
+    enabled = true;
+  };
+assert
+  context7WithExtraSettings.config.programs.opencode.settings.mcp.context7
+  == context7Only.config.programs.opencode.settings.mcp.context7;
+assert
+  context7WithExtraSettings.config.programs.opencode.settings.mcp.private == {
+    type = "remote";
+    url = "https://mcp.example.invalid/mcp";
+    enabled = true;
+  };
 assert enabled.config.programs.opencode.enable;
 assert enabled.config.programs.opencode.settings.autoupdate;
 assert enabled.config.programs.opencode.settings.share == "disabled";

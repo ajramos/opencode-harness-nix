@@ -894,7 +894,7 @@ if grep -Fq 'home-manager switch -b pre-opencode-harness --flake .' docs/superpo
   exit 1
 fi
 
-if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
+if grep -r -E -o --exclude=.git --exclude-dir=.git --exclude-dir=.superpowers \
   '/Users/[[:alnum:]_.-]+' . \
   | grep -v -E ':/Users/(your-username|test-user)$'; then
   printf 'personal absolute path found in public implementation\n' >&2
