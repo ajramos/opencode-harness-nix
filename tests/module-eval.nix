@@ -141,7 +141,7 @@ assert
 assert builtins.length failedUnsupportedAssertions == 1;
 assert
   (builtins.head failedUnsupportedAssertions).message
-  == "opencode-harness v0.1.0 supports only aarch64-darwin.";
+  == "opencode-harness v0.2.0 supports only aarch64-darwin.";
 assert unsupported.success == false;
 pkgs.runCommand "opencode-harness-module-eval" { } ''
   touch $out
