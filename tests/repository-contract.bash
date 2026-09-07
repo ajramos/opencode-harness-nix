@@ -5,6 +5,7 @@ required=(
   README.md
   CHANGELOG.md
   LICENSE
+  modules/opencode/lsp.nix
   templates/darwin/flake.nix
   templates/darwin/home.nix
   templates/darwin/private.nix.example
@@ -54,6 +55,7 @@ if grep -Fq 'home-manager switch -b pre-opencode-harness --flake .' docs/superpo
 fi
 
 if grep -r -E -o --exclude-dir=.git --exclude-dir=.superpowers \
+  --exclude-dir=.aide --exclude-dir=.opencode --exclude-dir=.worktrees \
   '/Users/[[:alnum:]_.-]+' . \
   | grep -v -E ':/Users/(your-username|test-user)$'; then
   printf 'personal absolute path found in public implementation\n' >&2

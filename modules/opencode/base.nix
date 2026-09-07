@@ -19,8 +19,21 @@ let
     else
       [ ];
   settingsWithoutPlugins = builtins.removeAttrs cfg.extraSettings [ "plugin" ];
+  baseSettings = {
+    autoupdate = false;
+  }
+  // lib.optionalAttrs (cfg.generatedLspSettings != { }) {
+    lsp = cfg.generatedLspSettings;
+  }
+  // lib.optionalAttrs cfg.mcp.atlassian.enable {
+    mcp.atlassian = {
+      type = "remote";
+      url = "https://mcp.atlassian.com/v2/mcp";
+      enabled = true;
+    };
+  };
   settings =
-    lib.recursiveUpdate { autoupdate = false; } settingsWithoutPlugins
+    lib.recursiveUpdate baseSettings settingsWithoutPlugins
     // lib.optionalAttrs (pinnedPlugins != [ ] || extraPlugins != [ ]) {
       plugin = lib.unique (pinnedPlugins ++ extraPlugins);
     };
@@ -28,6 +41,8 @@ in
 {
   options.programs.opencode-harness = {
     enable = lib.mkEnableOption "the OpenCode harness";
+
+    mcp.atlassian.enable = lib.mkEnableOption "the official Atlassian remote MCP server (per-user OAuth required)";
 
     extraSettings = lib.mkOption {
       inherit (jsonFormat) type;
