@@ -12,6 +12,7 @@ in
 {
   imports = [
     ./base.nix
+    ./context7.nix
     ./context-mode.nix
     ./aide.nix
     ./superpowers.nix
