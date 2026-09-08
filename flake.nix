@@ -62,6 +62,23 @@
         darwin-template-activation = templateHome.activationPackage;
         repository-contract = repositoryContract;
 
+        lsp-functional =
+          pkgs.runCommand "opencode-harness-lsp-functional"
+            {
+              nativeBuildInputs = [
+                pkgs.python3
+                pkgs.go
+                pkgs.shellcheck
+                pkgs.nix
+              ];
+            }
+            ''
+              export PYTHONDONTWRITEBYTECODE=1
+              ${pkgs.python3}/bin/python -m unittest discover -s ${./tests} -p 'test_lsp_functional.py' -v
+              ${pkgs.python3}/bin/python ${./tests/lsp-functional.py} ${pkgs.writeText "template-lsp.json" (builtins.toJSON templateHome.config.programs.opencode.settings.lsp)}
+              touch $out
+            '';
+
         herdr-worktree-terminal = pkgs.runCommand "herdr-worktree-terminal-check" { } ''
           ${pkgs.bash}/bin/bash ${./tests/herdr-worktree-terminal.bash} \
             ${pkgs.lib.getExe launcher} ${pkgs.lib.getExe pkgs.jq}

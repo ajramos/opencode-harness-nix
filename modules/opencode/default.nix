@@ -12,6 +12,7 @@ in
 {
   imports = [
     ./base.nix
+    ./lsp.nix
     ./context7.nix
     ./context-mode.nix
     ./aide.nix
