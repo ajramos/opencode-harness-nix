@@ -178,6 +178,39 @@ class ProtocolTests(unittest.TestCase):
     def test_fragmented_frames_requests_notifications_and_clean_exit(self):
         self.run_server("ok")
 
+    def test_cleanup_permission_error_is_only_tolerated_for_exited_darwin_server(self):
+        for platform, status in (
+            ("darwin", 0), ("darwin", 7), ("darwin", None), ("linux", 0)
+        ):
+            with (
+                self.subTest(platform=platform, status=status),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                script = (
+                    "import time; time.sleep(60)"
+                    if status is None else f"import sys; sys.exit({status})"
+                )
+                command = [sys.executable, "-c", script]
+                with self.module.Client(
+                    command, Path(directory), os.environ.copy(), 2
+                ) as client:
+                    if status is not None:
+                        client.process.wait(timeout=2)
+                    with (
+                        patch.object(self.module.sys, "platform", platform),
+                        patch.object(
+                            self.module.os, "killpg",
+                            side_effect=PermissionError(1, "Operation not permitted"),
+                        ),
+                    ):
+                        if platform == "darwin" and status is not None:
+                            client.stop_process_group()
+                            self.assertTrue(client.group_stopped)
+                        else:
+                            with self.assertRaises(PermissionError):
+                                client.stop_process_group()
+                            self.assertFalse(client.group_stopped)
+
     def test_nix_store_initialized_once_before_launch_and_setup_failures_stop_launch(
         self,
     ):

@@ -81,6 +81,11 @@ class Client:
             os.killpg(self.process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            # Darwin's killpg returns EPERM for groups containing only zombies.
+            # Do not hide permission failures while the server is still running.
+            if sys.platform != "darwin" or self.process.poll() is None:
+                raise
         self.group_stopped = True
 
     def send(self, message):
