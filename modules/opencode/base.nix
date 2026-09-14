@@ -12,7 +12,9 @@ let
     lib.optional cfg.plugins.contextMode.enable "context-mode@1.0.169"
     ++ lib.optional cfg.plugins.aide.enable "@jmylchreest/aide-plugin@0.1.15"
     ++ lib.optional cfg.plugins.superpowers.enable "superpowers@git+https://github.com/obra/superpowers.git#b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
-    ++ lib.optional cfg.herdrWorktrees.enable "@tmegit/opencode-worktree-session@1.1.0";
+    ++ lib.optional cfg.herdrWorktrees.enable "file://${
+      pkgs.callPackage ../../packages/worktree-session.nix { }
+    }/opencode-worktree-session.mjs";
   extraPlugins =
     if cfg.extraSettings ? plugin && builtins.isList cfg.extraSettings.plugin then
       cfg.extraSettings.plugin

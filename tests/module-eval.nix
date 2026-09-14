@@ -58,6 +58,9 @@ let
   ];
 
   baseOnly = mkEnabled { };
+  worktreePlugin = "file://${
+    pkgs.callPackage ../packages/worktree-session.nix { }
+  }/opencode-worktree-session.mjs";
   contextModeOnly = mkEnabled { plugins.contextMode.enable = true; };
   aideOnly = mkEnabled { plugins.aide.enable = true; };
   superpowersOnly = mkEnabled { plugins.superpowers.enable = true; };
@@ -218,7 +221,7 @@ let
     "context-mode@1.0.169"
     "@jmylchreest/aide-plugin@0.1.15"
     "superpowers@git+https://github.com/obra/superpowers.git#b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
-    "@tmegit/opencode-worktree-session@1.1.0"
+    worktreePlugin
     "custom-plugin@2.0.0"
   ];
 
@@ -355,7 +358,7 @@ assert
   ];
 assert
   herdrWorktreesOnly.config.programs.opencode.settings.plugin == [
-    "@tmegit/opencode-worktree-session@1.1.0"
+    worktreePlugin
   ];
 assert
   context7Only.config.programs.opencode.settings.mcp.context7 == {

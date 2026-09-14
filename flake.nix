@@ -26,6 +26,7 @@
       launcher = pkgs.callPackage ./packages/herdr-worktree-terminal.nix {
         herdrPackage = herdr.packages.${system}.default;
       };
+      worktreePlugin = pkgs.callPackage ./packages/worktree-session.nix { };
       repositoryContract = pkgs.runCommand "opencode-harness-repository-contract" { } ''
         cp -R ${./.} source
         chmod -R u+w source
@@ -46,6 +47,7 @@
       packages.${system} = {
         default = launcher;
         herdr-worktree-terminal = launcher;
+        worktree-session = worktreePlugin;
       };
 
       homeModules = {
@@ -61,6 +63,23 @@
       checks.${system} = {
         darwin-template-activation = templateHome.activationPackage;
         repository-contract = repositoryContract;
+
+        worktree-session =
+          pkgs.runCommand "worktree-session-check"
+            {
+              nativeBuildInputs = [
+                pkgs.nodejs
+                pkgs.git
+              ];
+            }
+            ''
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
+              export WORKTREE_PLUGIN=${worktreePlugin}/opencode-worktree-session.mjs
+              node --test ${./tests/worktree-session.test.mjs}
+              touch $out
+            '';
 
         lsp-functional =
           pkgs.runCommand "opencode-harness-lsp-functional"
