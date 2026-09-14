@@ -59,7 +59,7 @@ programs.opencode-harness = {
 };
 ```
 
-Every capability is optional. Enabling `context7` configures the public `https://mcp.context7.com/mcp/oauth` remote MCP endpoint. Enabling `herdrWorktrees` also enables `@tmegit/opencode-worktree-session@1.1.0`, installs the launcher, and exports its Nix store path as `OPENCODE_TERMINAL`.
+Every capability is optional. Enabling `context7` configures the public `https://mcp.context7.com/mcp/oauth` remote MCP endpoint. Enabling `herdrWorktrees` also enables the harness-patched `@tmegit/opencode-worktree-session@1.1.0`, installs the launcher, and exports its Nix store path as `OPENCODE_TERMINAL`. The plugin is loaded by file URL from the Nix store, not from a mutable npm cache. The npm tarball and original bundle are hash-checked; upstream terminal, configuration tools, and session handoff remain intact.
 
 Context7 authentication is intentionally not declarative. On first use, OpenCode starts its remote MCP OAuth flow and stores the resulting credentials outside the Nix configuration; no OAuth token, API key, or generated credential enters the Nix store or this repository.
 
@@ -120,6 +120,30 @@ After `createworktree` finishes its response, `@tmegit/opencode-worktree-session
 
 Logs are written to `${XDG_STATE_HOME:-$HOME/.local/state}/opencode-harness/worktree-terminal.log`.
 
+### Worktree Safety
+
+Deletion never stages, commits, pushes, or forces removal. Tracked changes, staged changes, nonignored untracked files, modified include copies, and unknown ignored files block cleanup. Files copied from `.worktreeinclude` are recorded by path and SHA-256 digest at creation; cleanup treats them as disposable only while both the source and copied file still match that recorded digest. A missing source, modified copy, or ignored file without a matching record preserves the worktree. Commits not reachable from any **locally known remote-tracking ref** also block cleanup, including repositories without remote-tracking refs. This is deliberately conservative and offline: fetch/push yourself if appropriate; stale remote refs are not proof of current remote durability. Branches are retained.
+
+Cleanup failures preserve session tracking and the pending deletion record. Failed idle cleanup is not retried on every idle event; explicitly call `deleteworktree` again after resolving the cause. Automatic events use exact session IDs only: deleting an unrelated session from a recorded checkout cannot select that checkout's worktree by path. Only the explicit `deleteworktree` tool recovers a worktree using Git metadata, including paths outside `.opencode/worktrees` and missing plugin state. The main checkout is never a deletion target.
+
+Session-state mutations serialize the entire read/modify/write with an exclusive `.opencode/worktree-session-state.json.lock` file in the main checkout. Mutators remain synchronous, matching the upstream call contract; contention waits at most approximately two seconds before reporting an error. Updates write and flush a private `0600` temporary file, then atomically rename it over the state file. Malformed JSON, invalid state records, and read errors refuse operations instead of resetting the state. An open reader sees the old complete snapshot, not a truncated file.
+
+Locks are never stolen based on age or PID. Cleanup only unlinks the file still owned by its open descriptor, leaving replacement locks untouched. A crashed writer can leave a lock and temporary file; stop all writers, preserve and inspect the state, and explicitly remove the stale lock before retrying. **All writing OpenCode instances must use the patched plugin** for this protocol to work; quit old instances before deployment and restart them afterward. These guarantees assume a local filesystem and no hostile concurrent replacement of filesystem paths; the plugin does not freeze other processes that write worktree files during cleanup.
+
+At creation, `.worktreeinclude` in the main checkout optionally lists ignored files to copy **before** scheduling the new terminal. For example:
+
+```text
+# Literal paths relative to the main checkout
+config.env
+.claude/settings.local.json
+```
+
+Blank lines and full-line `#` comments are ignored; surrounding whitespace is trimmed. Entries are literal regular-file paths, not glob patterns, directories, shell expressions, or negations. Absolute paths, `.`/`..` components, `.git` components, and symlink components are rejected. Files must be ignored and untracked in both checkouts; existing destinations are never overwritten. Missing entries or copy errors block launch, display an error, and retain the created worktree for inspection. Copies use mode `0600`. No file contents enter Nix builds or the store. This assumes no concurrent hostile filesystem mutation during copying; Node's portable filesystem API does not provide directory-relative `openat` traversal.
+
+The existing detached post-worktree hook still runs after copying; do not use it for setup that must complete before launch. Failed copies are not automatically retried. Resolve the cause and manage the retained worktree explicitly before recreating it. Synchronous launch errors retain a failed pending-spawn record without repeated idle retries; open the retained session manually. Upstream detached terminal spawning still cannot reliably report asynchronous launch failures. Git subprocesses use argument arrays, and new branch names are restricted to ASCII letters, digits, `.`, `_`, `/`, and `-` plus Git's branch-name validation.
+
+Existing globally configured npm plugin entries are not edited by this repository. Remove duplicate upstream entries in the consuming configuration when deploying; otherwise the unsafe plugin can still load alongside this one. Apply your Home Manager configuration separately, then quit and restart OpenCode. Editing this repository alone does not update an already running session.
+
 ## Reproducibility Boundary
 
 `flake.lock` pins Nixpkgs, Home Manager, and Herdr. OpenCode fetches plugin references at runtime; this project pins their npm versions or Git commit but does not build those plugins as Nix derivations.
@@ -143,6 +167,8 @@ nix flake check --print-build-logs
 ```
 
 On Apple Silicon macOS, the root `nix flake check` builds a Home Manager activation package directly from `templates/darwin/home.nix` and `homeModules.default`. CI also builds the exact nested template flake with an input override, independently validating the template's input wiring.
+
+The `worktree-session` check runs `tests/worktree-session.test.mjs` against the actual Nix-packaged bundle. It uses temporary Git repositories, synthetic ignored files, local fixture history, and a stubbed terminal boundary; no real worktrees, secret files, OpenCode sessions, or network remotes are used. Regressions cover safe disposal of unchanged recorded include copies, preservation of modified or unknown ignored data, exact-ID automatic events, four-process state updates and deletions, corrupt-state refusal, atomic reader snapshots, bounded lock contention, and ownership-safe cleanup after injected rename failures. Run just this check with `nix build .#checks.aarch64-darwin.worktree-session --no-link --print-build-logs`. Without Nix, set `WORKTREE_PLUGIN` to the patched bundle and run `node --test tests/worktree-session.test.mjs`. New repository files must be included in the flake source before Git-backed builds can see them.
 
 The module check evaluates every LSP independently, template defaults, disabled options, and consumer overrides. Package assertions compare against a baseline because Home Manager also installs its own packages. The build phase checks `test -x` for all seven template commands. Evaluation alone verifies package attributes and settings, not executable existence or successful server startup.
 

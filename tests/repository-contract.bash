@@ -11,6 +11,11 @@ required=(
   templates/darwin/private.nix.example
   templates/darwin/.gitignore
   modules/opencode/context7.nix
+  packages/worktree-session.nix
+  packages/patch-worktree-session.mjs
+  packages/worktree-safety.mjs
+  packages/worktree-state.mjs
+  tests/worktree-session.test.mjs
   .github/workflows/checks.yml
 )
 
